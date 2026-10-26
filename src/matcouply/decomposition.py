@@ -54,7 +54,7 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
     return tensor_slices
 
 
-def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params=None, A_0=None, B_is_0=None, C_0=None):
+def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params=None, weights_0=None, A_0=None, B_is_0=None, C_0=None):
     random_state = tl.check_random_state(random_state)
 
     # Start by checking if init is a valid factorization. If so, use it
@@ -126,7 +126,11 @@ def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params
             B_is = [tl.tensor(random_state.uniform(size=(tl.shape(matrix)[0], rank))) for matrix in matrices]
         else :
             B_is = B_is_0
-        return CoupledMatrixFactorization((None, [A, B_is, C]))
+        if weights_0 is None:
+            weights = None
+        else :
+            weights = weights_0
+        return CoupledMatrixFactorization((weights, [A, B_is, C]))
 
     raise ValueError('Initialization method "{}" not recognized'.format(init))
 
@@ -741,6 +745,7 @@ def cmf_aoadmm(
     matrices,
     rank,
     init="random",
+    weights_0=None,
     A_0=None,
     B_is_0=None,
     C_0=None,
@@ -954,7 +959,7 @@ def cmf_aoadmm(
     """
     random_state = tl.check_random_state(random_state)
     svd_fun = get_svd(svd)
-    cmf = initialize_cmf(matrices, rank, init, svd_fun=svd_fun, random_state=random_state, init_params=init_params, A_0=A_0, B_is_0=B_is_0, C_0=C_0)
+    cmf = initialize_cmf(matrices, rank, init, svd_fun=svd_fun, random_state=random_state, init_params=init_params, weights_0=weights_0, A_0=A_0, B_is_0=B_is_0, C_0=C_0)
 
     # Parse constraints
     l2_penalty = _listify(l2_penalty, "l2_penalty")
