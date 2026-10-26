@@ -1,6 +1,7 @@
 # MIT License: Copyright (c) 2022, Marie Roald.
 # See the LICENSE file in the root directory for full license text.
 
+from locale import ABMON_10
 from copy import copy
 from typing import NamedTuple, Optional
 
@@ -53,7 +54,7 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
     return tensor_slices
 
 
-def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params=None):
+def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params=None, A_0=None, B_is_0=None, C_0=None):
     random_state = tl.check_random_state(random_state)
 
     # Start by checking if init is a valid factorization. If so, use it
@@ -109,6 +110,23 @@ def initialize_cmf(matrices, rank, init, svd_fun, random_state=None, init_params
     if init == "cp_hals" or init == "parafac_hals":
         cp = tl.decomposition.non_negative_parafac_hals(tensor, rank, **init_params, random_state=random_state)
         return CoupledMatrixFactorization.from_CPTensor(cp, shapes=shapes)
+    
+    if init == "custom":
+        I = len(matrices)
+        K = tl.shape(matrices[0])[1]
+        if A_0 is None:
+            A = tl.tensor(random_state.uniform(size=(I, rank)))
+        else:
+            A = A_0
+        if C_0 is None:    
+            C = tl.tensor(random_state.uniform(size=(K, rank)))
+        else :
+            C = C_0
+        if B_is_0 is None:
+            B_is = [tl.tensor(random_state.uniform(size=(tl.shape(matrix)[0], rank))) for matrix in matrices]
+        else :
+            B_is = B_is_0
+        return CoupledMatrixFactorization((None, [A, B_is, C]))
 
     raise ValueError('Initialization method "{}" not recognized'.format(init))
 
@@ -723,6 +741,9 @@ def cmf_aoadmm(
     matrices,
     rank,
     init="random",
+    A_0=None,
+    B_is_0=None,
+    C_0=None,
     n_iter_max=1000,
     l2_penalty=None,
     tv_penalty=None,
@@ -933,7 +954,7 @@ def cmf_aoadmm(
     """
     random_state = tl.check_random_state(random_state)
     svd_fun = get_svd(svd)
-    cmf = initialize_cmf(matrices, rank, init, svd_fun=svd_fun, random_state=random_state, init_params=init_params)
+    cmf = initialize_cmf(matrices, rank, init, svd_fun=svd_fun, random_state=random_state, init_params=init_params, A_0=A_0, B_is_0=B_is_0, C_0=C_0)
 
     # Parse constraints
     l2_penalty = _listify(l2_penalty, "l2_penalty")
